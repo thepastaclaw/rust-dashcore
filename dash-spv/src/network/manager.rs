@@ -837,7 +837,7 @@ impl PeerNetworkManager {
             }
         }
 
-        // Send ping to all peers if needed
+        // Send ping to all peers if needed and disconnect unresponsive ones
         for (addr, peer) in self.pool.get_all_peers().await {
             let mut peer_guard = peer.write().await;
             if peer_guard.should_ping() {
@@ -849,7 +849,11 @@ impl PeerNetworkManager {
                         .await;
                 }
             }
-            peer_guard.cleanup_old_pings();
+            let has_expired = peer_guard.has_expired_pings();
+            drop(peer_guard);
+            if has_expired {
+                let _ = self.disconnect_peer(&addr, "ping timeout").await;
+            }
         }
 
         // Only save known peers if not in exclusive mode
