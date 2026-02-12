@@ -4,7 +4,7 @@
 //! when building transactions.
 
 use crate::wallet::managed_wallet_info::fee::FeeRate;
-use crate::Utxo;
+use crate::{Utxo};
 use alloc::vec::Vec;
 use core::cmp::Reverse;
 

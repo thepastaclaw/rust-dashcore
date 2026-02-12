@@ -608,6 +608,21 @@ struct FFISyncProgress *dash_spv_ffi_client_get_manager_sync_progress(struct FFI
  int32_t dash_spv_ffi_client_clear_storage(struct FFIDashSpvClient *client) ;
 
 /**
+ * Broadcasts a transaction to the Dash network via connected peers.
+ *
+ * # Safety
+ *
+ * - `client` must be a valid, non-null pointer to an initialized FFIDashSpvClient
+ * - `tx_hex` must be a valid, non-null pointer to a NUL-terminated C string
+ *   containing a hex-encoded serialized transaction
+ */
+
+int32_t dash_spv_ffi_client_broadcast_transaction(struct FFIDashSpvClient *client,
+                                                  const uint8_t *tx_bytes,
+                                                  uintptr_t length)
+;
+
+/**
  * Destroy the client and free associated resources.
  *
  * # Safety

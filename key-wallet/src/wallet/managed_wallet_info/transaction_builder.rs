@@ -130,7 +130,7 @@ impl TransactionBuilder {
                 input_size,
             )
             .map_err(BuilderError::CoinSelection)?;
-
+        
         // Add selected UTXOs with their keys
         for utxo in selection.selected {
             let key = keys(&utxo);
