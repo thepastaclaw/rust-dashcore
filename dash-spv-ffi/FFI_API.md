@@ -480,7 +480,7 @@ dash_spv_ffi_client_get_sync_progress(client: *mut FFIDashSpvClient,) -> *mut FF
 ```
 
 **Description:**
-Get the current sync progress snapshot.  # Safety - `client` must be a valid, non-null pointer.
+Get the current sync progress snapshot.  Use `dash_spv_ffi_sync_progress_destroy` to free the returned struct.  # Safety - `client` must be a valid, non-null pointer.
 
 **Safety:**
 - `client` must be a valid, non-null pointer.

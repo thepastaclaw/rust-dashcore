@@ -509,6 +509,8 @@ int32_t dash_spv_ffi_client_update_config(struct FFIDashSpvClient *client,
 /**
  * Get the current sync progress snapshot.
  *
+ * Use `dash_spv_ffi_sync_progress_destroy` to free the returned struct.
+ *
  * # Safety
  * - `client` must be a valid, non-null pointer.
  */

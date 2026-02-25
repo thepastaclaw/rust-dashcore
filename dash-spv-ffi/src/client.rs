@@ -407,6 +407,8 @@ pub unsafe extern "C" fn dash_spv_ffi_client_run(client: *mut FFIDashSpvClient) 
 
 /// Get the current sync progress snapshot.
 ///
+/// Use `dash_spv_ffi_sync_progress_destroy` to free the returned struct.
+///
 /// # Safety
 /// - `client` must be a valid, non-null pointer.
 #[no_mangle]
