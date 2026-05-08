@@ -13,6 +13,9 @@ use std::os::raw::{c_char, c_uint};
 use std::ptr;
 use std::slice;
 
+const DERIVATION_SEED_LEN: usize = 64;
+const DERIVATION_PRIVATE_KEY_LEN: usize = 32;
+
 /// Derivation path type for DIP9
 #[repr(C)]
 #[derive(Clone, Copy)]
@@ -506,7 +509,8 @@ pub unsafe extern "C" fn key_wallet_derive_address_from_key(
 /// Derive an address from a seed at a specific derivation path
 ///
 /// # Safety
-/// - `seed` must be a valid pointer to 64 bytes
+/// - `seed` must be a valid pointer to `seed_len` bytes
+/// - `seed_len` must be exactly 64
 /// - `network` is the network for the address
 /// - `path` must be a valid null-terminated C string (e.g., "m/44'/5'/0'/0/0")
 ///
@@ -514,16 +518,17 @@ pub unsafe extern "C" fn key_wallet_derive_address_from_key(
 /// - Pointer to C string with address (caller must free)
 /// - NULL on error
 #[no_mangle]
-pub unsafe extern "C" fn key_wallet_derive_address_from_seed(
+pub unsafe extern "C" fn key_wallet_derive_address_from_seed_with_len(
     seed: *const u8,
+    seed_len: usize,
     network: FFINetwork,
     path: *const c_char,
 ) -> *mut c_char {
-    if seed.is_null() || path.is_null() {
+    if seed.is_null() || path.is_null() || seed_len != DERIVATION_SEED_LEN {
         return ptr::null_mut();
     }
 
-    let seed_slice = slice::from_raw_parts(seed, 64);
+    let seed_slice = slice::from_raw_parts(seed, seed_len);
     let dash_network: key_wallet::Network = network.into();
 
     // Parse derivation path
@@ -566,27 +571,54 @@ pub unsafe extern "C" fn key_wallet_derive_address_from_seed(
     }
 }
 
-/// Derive a private key from a seed at a specific derivation path
+/// Deprecated compatibility wrapper for `key_wallet_derive_address_from_seed_with_len`.
+///
+/// This symbol assumes `seed` points to 64 bytes and cannot validate caller capacity.
 ///
 /// # Safety
 /// - `seed` must be a valid pointer to 64 bytes
+/// - `network` is the network for the address
 /// - `path` must be a valid null-terminated C string (e.g., "m/44'/5'/0'/0/0")
-/// - `key_out` must be a valid pointer to a buffer of at least 32 bytes
+#[no_mangle]
+#[deprecated(note = "use key_wallet_derive_address_from_seed_with_len to provide seed length")]
+pub unsafe extern "C" fn key_wallet_derive_address_from_seed(
+    seed: *const u8,
+    network: FFINetwork,
+    path: *const c_char,
+) -> *mut c_char {
+    key_wallet_derive_address_from_seed_with_len(seed, DERIVATION_SEED_LEN, network, path)
+}
+
+/// Derive a private key from a seed at a specific derivation path
+///
+/// # Safety
+/// - `seed` must be a valid pointer to `seed_len` bytes
+/// - `seed_len` must be exactly 64
+/// - `path` must be a valid null-terminated C string (e.g., "m/44'/5'/0'/0/0")
+/// - `key_out` must be a valid pointer to a buffer of at least `key_out_len` bytes
+/// - `key_out_len` must be at least 32
 ///
 /// # Returns
 /// - 0 on success
 /// - -1 on error
 #[no_mangle]
-pub unsafe extern "C" fn key_wallet_derive_private_key_from_seed(
+pub unsafe extern "C" fn key_wallet_derive_private_key_from_seed_with_len(
     seed: *const u8,
+    seed_len: usize,
     path: *const c_char,
     key_out: *mut u8,
+    key_out_len: usize,
 ) -> i32 {
-    if seed.is_null() || path.is_null() || key_out.is_null() {
+    if seed.is_null()
+        || path.is_null()
+        || key_out.is_null()
+        || seed_len != DERIVATION_SEED_LEN
+        || key_out_len < DERIVATION_PRIVATE_KEY_LEN
+    {
         return -1;
     }
 
-    let seed_slice = slice::from_raw_parts(seed, 64);
+    let seed_slice = slice::from_raw_parts(seed, seed_len);
 
     // Parse derivation path
     let path_str = match CStr::from_ptr(path).to_str() {
@@ -615,9 +647,35 @@ pub unsafe extern "C" fn key_wallet_derive_private_key_from_seed(
 
     // Copy private key bytes
     let key_bytes = derived_key.private_key.secret_bytes();
-    ptr::copy_nonoverlapping(key_bytes.as_ptr(), key_out, 32);
+    ptr::copy_nonoverlapping(key_bytes.as_ptr(), key_out, DERIVATION_PRIVATE_KEY_LEN);
 
     0
+}
+
+/// Deprecated compatibility wrapper for `key_wallet_derive_private_key_from_seed_with_len`.
+///
+/// This symbol assumes `seed` points to 64 bytes and `key_out` points to 32 bytes.
+///
+/// # Safety
+/// - `seed` must be a valid pointer to 64 bytes
+/// - `path` must be a valid null-terminated C string (e.g., "m/44'/5'/0'/0/0")
+/// - `key_out` must be a valid pointer to a buffer of at least 32 bytes
+#[no_mangle]
+#[deprecated(
+    note = "use key_wallet_derive_private_key_from_seed_with_len to provide buffer capacities"
+)]
+pub unsafe extern "C" fn key_wallet_derive_private_key_from_seed(
+    seed: *const u8,
+    path: *const c_char,
+    key_out: *mut u8,
+) -> i32 {
+    key_wallet_derive_private_key_from_seed_with_len(
+        seed,
+        DERIVATION_SEED_LEN,
+        path,
+        key_out,
+        DERIVATION_PRIVATE_KEY_LEN,
+    )
 }
 
 #[cfg(test)]

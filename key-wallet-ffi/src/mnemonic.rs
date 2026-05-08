@@ -13,6 +13,8 @@ use key_wallet::Mnemonic;
 use crate::error::{FFIError, FFIErrorCode};
 use crate::{check_ptr, deref_ptr, unwrap_or_return};
 
+const MNEMONIC_SEED_LEN: usize = 64;
+
 /// Language enumeration for mnemonic generation
 ///
 /// This enum must be kept in sync with key_wallet::mnemonic::Language.
@@ -194,14 +196,16 @@ pub unsafe extern "C" fn mnemonic_validate(mnemonic: *const c_char, error: *mut 
 ///
 /// - `mnemonic` must be a valid null-terminated C string
 /// - `passphrase` must be a valid null-terminated C string or null
-/// - `seed_out` must be a valid pointer to a buffer of at least 64 bytes
+/// - `seed_out` must be a valid pointer to a buffer of at least `seed_out_len` bytes
+/// - `seed_out_len` is the writable capacity of `seed_out`
 /// - `seed_len` must be a valid pointer to store the seed length
 /// - `error` must be a valid pointer to an FFIError
 #[no_mangle]
-pub unsafe extern "C" fn mnemonic_to_seed(
+pub unsafe extern "C" fn mnemonic_to_seed_with_len(
     mnemonic: *const c_char,
     passphrase: *const c_char,
     seed_out: *mut u8,
+    seed_out_len: usize,
     seed_len: *mut usize,
     error: *mut FFIError,
 ) -> bool {
@@ -223,13 +227,40 @@ pub unsafe extern "C" fn mnemonic_to_seed(
 
     unsafe {
         *seed_len = seed_bytes.len();
-        if *seed_len > 64 {
-            (*error).set(FFIErrorCode::InvalidState, "Seed too large");
+        if seed_out_len < *seed_len {
+            (*error).set(
+                FFIErrorCode::InvalidInput,
+                &format!("Seed buffer too small: {} < {}", seed_out_len, *seed_len),
+            );
             return false;
         }
         std::ptr::copy_nonoverlapping(seed_bytes.as_ptr(), seed_out, seed_bytes.len());
     }
     true
+}
+
+/// Deprecated compatibility wrapper for `mnemonic_to_seed_with_len`.
+///
+/// This symbol assumes `seed_out` points to a 64-byte buffer and cannot validate
+/// the caller-provided capacity.
+///
+/// # Safety
+///
+/// - `mnemonic` must be a valid null-terminated C string
+/// - `passphrase` must be a valid null-terminated C string or null
+/// - `seed_out` must be a valid pointer to a buffer of at least 64 bytes
+/// - `seed_len` must be a valid pointer to store the seed length
+/// - `error` must be a valid pointer to an FFIError
+#[no_mangle]
+#[deprecated(note = "use mnemonic_to_seed_with_len to provide output buffer capacity")]
+pub unsafe extern "C" fn mnemonic_to_seed(
+    mnemonic: *const c_char,
+    passphrase: *const c_char,
+    seed_out: *mut u8,
+    seed_len: *mut usize,
+    error: *mut FFIError,
+) -> bool {
+    mnemonic_to_seed_with_len(mnemonic, passphrase, seed_out, MNEMONIC_SEED_LEN, seed_len, error)
 }
 
 /// Get word count from mnemonic

@@ -18,6 +18,8 @@ use crate::types::{FFIWallet, FFIWalletAccountCreationOptions};
 use crate::{check_ptr, deref_ptr, unwrap_or_return};
 use key_wallet::Network;
 
+const WALLET_ID_LEN: usize = 32;
+
 /// Create a new wallet from mnemonic with options
 ///
 /// # Safety
@@ -211,20 +213,50 @@ pub unsafe extern "C" fn wallet_create_random(
 /// # Safety
 ///
 /// - `wallet` must be a valid pointer to an FFIWallet
+/// - `id_out` must be a valid pointer to a buffer of at least `id_out_len` bytes
+/// - `id_out_len` must be at least 32
+/// - `error` must be a valid pointer to an FFIError structure
+/// - The caller must ensure all pointers remain valid for the duration of this call
+#[no_mangle]
+pub unsafe extern "C" fn wallet_get_id_with_len(
+    wallet: *const FFIWallet,
+    id_out: *mut u8,
+    id_out_len: usize,
+    error: *mut FFIError,
+) -> bool {
+    let wallet = deref_ptr!(wallet, error);
+    check_ptr!(id_out, error);
+    if id_out_len < WALLET_ID_LEN {
+        (*error).set(
+            FFIErrorCode::InvalidInput,
+            &format!("Wallet ID buffer too small: {} < {}", id_out_len, WALLET_ID_LEN),
+        );
+        return false;
+    }
+    let wallet_id = wallet.inner().wallet_id;
+    ptr::copy_nonoverlapping(wallet_id.as_ptr(), id_out, WALLET_ID_LEN);
+    true
+}
+
+/// Deprecated compatibility wrapper for `wallet_get_id_with_len`.
+///
+/// This symbol assumes `id_out` points to 32 writable bytes and cannot validate
+/// the caller-provided capacity.
+///
+/// # Safety
+///
+/// - `wallet` must be a valid pointer to an FFIWallet
 /// - `id_out` must be a valid pointer to a 32-byte buffer
 /// - `error` must be a valid pointer to an FFIError structure
 /// - The caller must ensure all pointers remain valid for the duration of this call
 #[no_mangle]
+#[deprecated(note = "use wallet_get_id_with_len to provide output buffer capacity")]
 pub unsafe extern "C" fn wallet_get_id(
     wallet: *const FFIWallet,
     id_out: *mut u8,
     error: *mut FFIError,
 ) -> bool {
-    let wallet = deref_ptr!(wallet, error);
-    check_ptr!(id_out, error);
-    let wallet_id = wallet.inner().wallet_id;
-    ptr::copy_nonoverlapping(wallet_id.as_ptr(), id_out, 32);
-    true
+    wallet_get_id_with_len(wallet, id_out, WALLET_ID_LEN, error)
 }
 
 /// Check if wallet has mnemonic

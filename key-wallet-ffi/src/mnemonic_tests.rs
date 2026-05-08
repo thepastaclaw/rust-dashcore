@@ -92,10 +92,11 @@ mod tests {
         let mut seed_len: usize = 0;
 
         let success = unsafe {
-            mnemonic::mnemonic_to_seed(
+            mnemonic::mnemonic_to_seed_with_len(
                 mnemonic.as_ptr(),
                 passphrase.as_ptr(),
                 seed.as_mut_ptr(),
+                seed.len(),
                 &mut seed_len,
                 error,
             )
@@ -110,10 +111,11 @@ mod tests {
         let mut seed_with_pass = [0u8; 64];
 
         let success = unsafe {
-            mnemonic::mnemonic_to_seed(
+            mnemonic::mnemonic_to_seed_with_len(
                 mnemonic.as_ptr(),
                 passphrase.as_ptr(),
                 seed_with_pass.as_mut_ptr(),
+                seed_with_pass.len(),
                 &mut seed_len,
                 error,
             )
@@ -185,10 +187,11 @@ mod tests {
         let mut seed_len: usize = 0;
 
         let success = unsafe {
-            mnemonic::mnemonic_to_seed(
+            mnemonic::mnemonic_to_seed_with_len(
                 mnemonic.as_ptr(),
                 ptr::null(), // null passphrase
                 seed.as_mut_ptr(),
+                seed.len(),
                 &mut seed_len,
                 error,
             )
@@ -314,10 +317,11 @@ mod tests {
         let mut seed_len = 64usize;
 
         let success = unsafe {
-            mnemonic::mnemonic_to_seed(
+            mnemonic::mnemonic_to_seed_with_len(
                 mnemonic.as_ptr(),
                 empty_pass.as_ptr(),
                 seed1.as_mut_ptr(),
+                seed1.len(),
                 &mut seed_len,
                 &mut error,
             )
@@ -330,10 +334,11 @@ mod tests {
         seed_len = 64;
 
         let success = unsafe {
-            mnemonic::mnemonic_to_seed(
+            mnemonic::mnemonic_to_seed_with_len(
                 mnemonic.as_ptr(),
                 pass.as_ptr(),
                 seed2.as_mut_ptr(),
+                seed2.len(),
                 &mut seed_len,
                 &mut error,
             )
@@ -403,10 +408,11 @@ mod tests {
 
         // Test null mnemonic
         let success = unsafe {
-            mnemonic::mnemonic_to_seed(
+            mnemonic::mnemonic_to_seed_with_len(
                 ptr::null(),
                 ptr::null(),
                 seed.as_mut_ptr(),
+                seed.len(),
                 &mut seed_len,
                 &mut error,
             )
@@ -417,10 +423,11 @@ mod tests {
         // Test null seed_out
         let mnemonic = CString::new(TEST_MNEMONIC).unwrap();
         let success = unsafe {
-            mnemonic::mnemonic_to_seed(
+            mnemonic::mnemonic_to_seed_with_len(
                 mnemonic.as_ptr(),
                 ptr::null(),
                 ptr::null_mut(),
+                seed.len(),
                 &mut seed_len,
                 &mut error,
             )
@@ -430,15 +437,41 @@ mod tests {
 
         // Test null seed_len
         let success = unsafe {
-            mnemonic::mnemonic_to_seed(
+            mnemonic::mnemonic_to_seed_with_len(
                 mnemonic.as_ptr(),
                 ptr::null(),
                 seed.as_mut_ptr(),
+                seed.len(),
                 ptr::null_mut(),
                 &mut error,
             )
         };
         assert!(!success);
+        assert_eq!(error.code, FFIErrorCode::InvalidInput);
+    }
+
+    #[test]
+    fn test_mnemonic_to_seed_with_len_rejects_small_buffer() {
+        let mut error = FFIError::default();
+        let mnemonic = CString::new(TEST_MNEMONIC).unwrap();
+        let mut seed = [0xAAu8; 63];
+        let original_seed = seed;
+        let mut seed_len = 0usize;
+
+        let success = unsafe {
+            mnemonic::mnemonic_to_seed_with_len(
+                mnemonic.as_ptr(),
+                ptr::null(),
+                seed.as_mut_ptr(),
+                seed.len(),
+                &mut seed_len,
+                &mut error,
+            )
+        };
+
+        assert!(!success);
+        assert_eq!(seed_len, 64);
+        assert_eq!(seed, original_seed);
         assert_eq!(error.code, FFIErrorCode::InvalidInput);
     }
 
@@ -450,10 +483,11 @@ mod tests {
 
         let invalid_mnemonic = CString::new("invalid mnemonic phrase").unwrap();
         let success = unsafe {
-            mnemonic::mnemonic_to_seed(
+            mnemonic::mnemonic_to_seed_with_len(
                 invalid_mnemonic.as_ptr(),
                 ptr::null(),
                 seed.as_mut_ptr(),
+                seed.len(),
                 &mut seed_len,
                 &mut error,
             )
@@ -472,10 +506,11 @@ mod tests {
         // Test invalid UTF-8 in mnemonic
         let invalid_utf8 = [0xFF, 0xFE, 0xFD, 0x00];
         let success = unsafe {
-            mnemonic::mnemonic_to_seed(
+            mnemonic::mnemonic_to_seed_with_len(
                 invalid_utf8.as_ptr() as *const std::os::raw::c_char,
                 ptr::null(),
                 seed.as_mut_ptr(),
+                seed.len(),
                 &mut seed_len,
                 &mut error,
             )
@@ -486,10 +521,11 @@ mod tests {
         // Test invalid UTF-8 in passphrase
         let mnemonic = CString::new(TEST_MNEMONIC).unwrap();
         let success = unsafe {
-            mnemonic::mnemonic_to_seed(
+            mnemonic::mnemonic_to_seed_with_len(
                 mnemonic.as_ptr(),
                 invalid_utf8.as_ptr() as *const std::os::raw::c_char,
                 seed.as_mut_ptr(),
+                seed.len(),
                 &mut seed_len,
                 &mut error,
             )
@@ -614,20 +650,22 @@ mod tests {
         let mut seed_len2 = 0usize;
 
         let success1 = unsafe {
-            mnemonic::mnemonic_to_seed(
+            mnemonic::mnemonic_to_seed_with_len(
                 mnemonic,
                 passphrase.as_ptr(),
                 seed1.as_mut_ptr(),
+                seed1.len(),
                 &mut seed_len1,
                 &mut error,
             )
         };
 
         let success2 = unsafe {
-            mnemonic::mnemonic_to_seed(
+            mnemonic::mnemonic_to_seed_with_len(
                 mnemonic,
                 passphrase.as_ptr(),
                 seed2.as_mut_ptr(),
+                seed2.len(),
                 &mut seed_len2,
                 &mut error,
             )
@@ -669,10 +707,11 @@ mod tests {
         let passphrase = CString::new("workflow_test").unwrap();
 
         let success = unsafe {
-            mnemonic::mnemonic_to_seed(
+            mnemonic::mnemonic_to_seed_with_len(
                 mnemonic,
                 passphrase.as_ptr(),
                 seed.as_mut_ptr(),
+                seed.len(),
                 &mut seed_len,
                 &mut error,
             )

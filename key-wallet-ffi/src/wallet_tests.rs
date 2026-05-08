@@ -177,18 +177,38 @@ mod wallet_tests {
 
         // Get wallet ID
         let mut id = [0u8; 32];
-        let success = unsafe { wallet::wallet_get_id(wallet, id.as_mut_ptr(), error) };
+        let success =
+            unsafe { wallet::wallet_get_id_with_len(wallet, id.as_mut_ptr(), id.len(), error) };
         assert!(success);
 
         // ID should not be all zeros
         assert_ne!(id, [0u8; 32]);
 
         // Test with null buffer
-        let success = unsafe { wallet::wallet_get_id(wallet, ptr::null_mut(), error) };
+        let success = unsafe { wallet::wallet_get_id_with_len(wallet, ptr::null_mut(), 32, error) };
         assert!(!success);
         assert_eq!(unsafe { (*error).code }, FFIErrorCode::InvalidInput);
 
         // Clean up
+        unsafe {
+            wallet::wallet_free(wallet);
+        }
+    }
+
+    #[test]
+    fn test_wallet_get_id_with_len_rejects_small_buffer() {
+        let mut error = FFIError::default();
+        let error = &mut error as *mut FFIError;
+
+        let wallet = unsafe { wallet::wallet_create_random(FFINetwork::Testnet, error) };
+        assert!(!wallet.is_null());
+
+        let mut id = [0u8; 31];
+        let success =
+            unsafe { wallet::wallet_get_id_with_len(wallet, id.as_mut_ptr(), id.len(), error) };
+        assert!(!success);
+        assert_eq!(unsafe { (*error).code }, FFIErrorCode::InvalidInput);
+
         unsafe {
             wallet::wallet_free(wallet);
         }

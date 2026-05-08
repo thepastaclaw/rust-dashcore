@@ -95,10 +95,11 @@ fn test_seed_to_wallet_workflow() {
     let mut seed_len: usize = 0;
 
     let success = unsafe {
-        key_wallet_ffi::mnemonic::mnemonic_to_seed(
+        key_wallet_ffi::mnemonic::mnemonic_to_seed_with_len(
             mnemonic.as_ptr(),
             passphrase.as_ptr(),
             seed.as_mut_ptr(),
+            seed.len(),
             &mut seed_len,
             error,
         )

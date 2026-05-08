@@ -4,7 +4,7 @@ This document provides a comprehensive reference for all FFI (Foreign Function I
 
 **Auto-generated**: This documentation is automatically generated from the source code. Do not edit manually.
 
-**Total Functions**: 257
+**Total Functions**: 261
 
 ## Table of Contents
 
@@ -69,7 +69,7 @@ Functions: 19
 
 ### Wallet Operations
 
-Functions: 63
+Functions: 66
 
 | Function | Description | Module |
 |----------|-------------|--------|
@@ -78,8 +78,10 @@ Functions: 63
 | `eddsa_account_get_parent_wallet_id` | No description | account |
 | `ffi_managed_wallet_free` | Free a managed wallet (FFIManagedWalletInfo type)  # Safety  -... | transaction_checking |
 | `key_wallet_derive_address_from_key` | Derive an address from a private key  # Safety - `private_key` must be a... | derivation |
-| `key_wallet_derive_address_from_seed` | Derive an address from a seed at a specific derivation path  # Safety -... | derivation |
-| `key_wallet_derive_private_key_from_seed` | Derive a private key from a seed at a specific derivation path  # Safety -... | derivation |
+| `key_wallet_derive_address_from_seed` | Deprecated compatibility wrapper for `key_wallet_derive_address_from_seed_wit... | derivation |
+| `key_wallet_derive_address_from_seed_with_len` | Derive an address from a seed at a specific derivation path  # Safety -... | derivation |
+| `key_wallet_derive_private_key_from_seed` | Deprecated compatibility wrapper for `key_wallet_derive_private_key_from_seed... | derivation |
+| `key_wallet_derive_private_key_from_seed_with_len` | Derive a private key from a seed at a specific derivation path  # Safety -... | derivation |
 | `managed_core_account_get_parent_wallet_id` | Get the parent wallet ID of a managed account  Note: ManagedAccount doesn't... | managed_account |
 | `managed_wallet_check_transaction` | Check if a transaction belongs to the wallet  This function checks a... | transaction_checking |
 | `managed_wallet_free` | Free managed wallet info  # Safety  - `managed_wallet` must be a valid... | managed_wallet |
@@ -130,7 +132,8 @@ Functions: 63
 | `wallet_get_account_count` | Get number of accounts  # Safety  - `wallet` must be a valid pointer to an... | account |
 | `wallet_get_account_xpriv` | Get extended private key for account  # Safety  - `wallet` must be a valid... | keys |
 | `wallet_get_account_xpub` | Get extended public key for account  # Safety  - `wallet` must be a valid... | keys |
-| `wallet_get_id` | Get wallet ID (32-byte hash)  # Safety  - `wallet` must be a valid pointer... | wallet |
+| `wallet_get_id` | Deprecated compatibility wrapper for `wallet_get_id_with_len` | wallet |
+| `wallet_get_id_with_len` | Get wallet ID (32-byte hash)  # Safety  - `wallet` must be a valid pointer... | wallet |
 | `wallet_get_top_up_account_with_registration_index` | Get an IdentityTopUp account handle with a specific registration index This... | account |
 | `wallet_get_utxos` | Get all UTXOs (deprecated - use managed_wallet_get_utxos instead)  # Safety ... | utxo |
 | `wallet_get_xpub` | Get extended public key for account  # Safety  - `wallet` must be a valid... | wallet |
@@ -313,14 +316,15 @@ Functions: 14
 
 ### Mnemonic Operations
 
-Functions: 6
+Functions: 7
 
 | Function | Description | Module |
 |----------|-------------|--------|
 | `mnemonic_free` | Free a mnemonic string  # Safety  - `mnemonic` must be a valid pointer... | mnemonic |
 | `mnemonic_generate` | Generate a new mnemonic with specified word count (12, 15, 18, 21, or 24)  #... | mnemonic |
 | `mnemonic_generate_with_language` | Generate a new mnemonic with specified language and word count  # Safety ... | mnemonic |
-| `mnemonic_to_seed` | Convert mnemonic to seed with optional passphrase  # Safety  - `mnemonic`... | mnemonic |
+| `mnemonic_to_seed` | Deprecated compatibility wrapper for `mnemonic_to_seed_with_len` | mnemonic |
+| `mnemonic_to_seed_with_len` | Convert mnemonic to seed with optional passphrase  # Safety  - `mnemonic`... | mnemonic |
 | `mnemonic_validate` | Validate a mnemonic phrase  # Safety  - `mnemonic` must be a valid... | mnemonic |
 | `mnemonic_word_count` | Get word count from mnemonic  # Safety  - `mnemonic` must be a valid... | mnemonic |
 
@@ -809,10 +813,26 @@ key_wallet_derive_address_from_seed(seed: *const u8, network: FFINetwork, path: 
 ```
 
 **Description:**
-Derive an address from a seed at a specific derivation path  # Safety - `seed` must be a valid pointer to 64 bytes - `network` is the network for the address - `path` must be a valid null-terminated C string (e.g., "m/44'/5'/0'/0/0")  # Returns - Pointer to C string with address (caller must free) - NULL on error
+Deprecated compatibility wrapper for `key_wallet_derive_address_from_seed_with_len`.  This symbol assumes `seed` points to 64 bytes and cannot validate caller capacity.  # Safety - `seed` must be a valid pointer to 64 bytes - `network` is the network for the address - `path` must be a valid null-terminated C string (e.g., "m/44'/5'/0'/0/0")
 
 **Safety:**
 - `seed` must be a valid pointer to 64 bytes - `network` is the network for the address - `path` must be a valid null-terminated C string (e.g., "m/44'/5'/0'/0/0")
+
+**Module:** `derivation`
+
+---
+
+#### `key_wallet_derive_address_from_seed_with_len`
+
+```c
+key_wallet_derive_address_from_seed_with_len(seed: *const u8, seed_len: usize, network: FFINetwork, path: *const c_char,) -> *mut c_char
+```
+
+**Description:**
+Derive an address from a seed at a specific derivation path  # Safety - `seed` must be a valid pointer to `seed_len` bytes - `seed_len` must be exactly 64 - `network` is the network for the address - `path` must be a valid null-terminated C string (e.g., "m/44'/5'/0'/0/0")  # Returns - Pointer to C string with address (caller must free) - NULL on error
+
+**Safety:**
+- `seed` must be a valid pointer to `seed_len` bytes - `seed_len` must be exactly 64 - `network` is the network for the address - `path` must be a valid null-terminated C string (e.g., "m/44'/5'/0'/0/0")
 
 **Module:** `derivation`
 
@@ -825,10 +845,26 @@ key_wallet_derive_private_key_from_seed(seed: *const u8, path: *const c_char, ke
 ```
 
 **Description:**
-Derive a private key from a seed at a specific derivation path  # Safety - `seed` must be a valid pointer to 64 bytes - `path` must be a valid null-terminated C string (e.g., "m/44'/5'/0'/0/0") - `key_out` must be a valid pointer to a buffer of at least 32 bytes  # Returns - 0 on success - -1 on error
+Deprecated compatibility wrapper for `key_wallet_derive_private_key_from_seed_with_len`.  This symbol assumes `seed` points to 64 bytes and `key_out` points to 32 bytes.  # Safety - `seed` must be a valid pointer to 64 bytes - `path` must be a valid null-terminated C string (e.g., "m/44'/5'/0'/0/0") - `key_out` must be a valid pointer to a buffer of at least 32 bytes
 
 **Safety:**
 - `seed` must be a valid pointer to 64 bytes - `path` must be a valid null-terminated C string (e.g., "m/44'/5'/0'/0/0") - `key_out` must be a valid pointer to a buffer of at least 32 bytes
+
+**Module:** `derivation`
+
+---
+
+#### `key_wallet_derive_private_key_from_seed_with_len`
+
+```c
+key_wallet_derive_private_key_from_seed_with_len(seed: *const u8, seed_len: usize, path: *const c_char, key_out: *mut u8, key_out_len: usize,) -> i32
+```
+
+**Description:**
+Derive a private key from a seed at a specific derivation path  # Safety - `seed` must be a valid pointer to `seed_len` bytes - `seed_len` must be exactly 64 - `path` must be a valid null-terminated C string (e.g., "m/44'/5'/0'/0/0") - `key_out` must be a valid pointer to a buffer of at least `key_out_len` bytes - `key_out_len` must be at least 32  # Returns - 0 on success - -1 on error
+
+**Safety:**
+- `seed` must be a valid pointer to `seed_len` bytes - `seed_len` must be exactly 64 - `path` must be a valid null-terminated C string (e.g., "m/44'/5'/0'/0/0") - `key_out` must be a valid pointer to a buffer of at least `key_out_len` bytes - `key_out_len` must be at least 32
 
 **Module:** `derivation`
 
@@ -1641,10 +1677,26 @@ wallet_get_id(wallet: *const FFIWallet, id_out: *mut u8, error: *mut FFIError,) 
 ```
 
 **Description:**
-Get wallet ID (32-byte hash)  # Safety  - `wallet` must be a valid pointer to an FFIWallet - `id_out` must be a valid pointer to a 32-byte buffer - `error` must be a valid pointer to an FFIError structure - The caller must ensure all pointers remain valid for the duration of this call
+Deprecated compatibility wrapper for `wallet_get_id_with_len`.  This symbol assumes `id_out` points to 32 writable bytes and cannot validate the caller-provided capacity.  # Safety  - `wallet` must be a valid pointer to an FFIWallet - `id_out` must be a valid pointer to a 32-byte buffer - `error` must be a valid pointer to an FFIError structure - The caller must ensure all pointers remain valid for the duration of this call
 
 **Safety:**
 - `wallet` must be a valid pointer to an FFIWallet - `id_out` must be a valid pointer to a 32-byte buffer - `error` must be a valid pointer to an FFIError structure - The caller must ensure all pointers remain valid for the duration of this call
+
+**Module:** `wallet`
+
+---
+
+#### `wallet_get_id_with_len`
+
+```c
+wallet_get_id_with_len(wallet: *const FFIWallet, id_out: *mut u8, id_out_len: usize, error: *mut FFIError,) -> bool
+```
+
+**Description:**
+Get wallet ID (32-byte hash)  # Safety  - `wallet` must be a valid pointer to an FFIWallet - `id_out` must be a valid pointer to a buffer of at least `id_out_len` bytes - `id_out_len` must be at least 32 - `error` must be a valid pointer to an FFIError structure - The caller must ensure all pointers remain valid for the duration of this call
+
+**Safety:**
+- `wallet` must be a valid pointer to an FFIWallet - `id_out` must be a valid pointer to a buffer of at least `id_out_len` bytes - `id_out_len` must be at least 32 - `error` must be a valid pointer to an FFIError structure - The caller must ensure all pointers remain valid for the duration of this call
 
 **Module:** `wallet`
 
@@ -4044,10 +4096,26 @@ mnemonic_to_seed(mnemonic: *const c_char, passphrase: *const c_char, seed_out: *
 ```
 
 **Description:**
-Convert mnemonic to seed with optional passphrase  # Safety  - `mnemonic` must be a valid null-terminated C string - `passphrase` must be a valid null-terminated C string or null - `seed_out` must be a valid pointer to a buffer of at least 64 bytes - `seed_len` must be a valid pointer to store the seed length - `error` must be a valid pointer to an FFIError
+Deprecated compatibility wrapper for `mnemonic_to_seed_with_len`.  This symbol assumes `seed_out` points to a 64-byte buffer and cannot validate the caller-provided capacity.  # Safety  - `mnemonic` must be a valid null-terminated C string - `passphrase` must be a valid null-terminated C string or null - `seed_out` must be a valid pointer to a buffer of at least 64 bytes - `seed_len` must be a valid pointer to store the seed length - `error` must be a valid pointer to an FFIError
 
 **Safety:**
 - `mnemonic` must be a valid null-terminated C string - `passphrase` must be a valid null-terminated C string or null - `seed_out` must be a valid pointer to a buffer of at least 64 bytes - `seed_len` must be a valid pointer to store the seed length - `error` must be a valid pointer to an FFIError
+
+**Module:** `mnemonic`
+
+---
+
+#### `mnemonic_to_seed_with_len`
+
+```c
+mnemonic_to_seed_with_len(mnemonic: *const c_char, passphrase: *const c_char, seed_out: *mut u8, seed_out_len: usize, seed_len: *mut usize, error: *mut FFIError,) -> bool
+```
+
+**Description:**
+Convert mnemonic to seed with optional passphrase  # Safety  - `mnemonic` must be a valid null-terminated C string - `passphrase` must be a valid null-terminated C string or null - `seed_out` must be a valid pointer to a buffer of at least `seed_out_len` bytes - `seed_out_len` is the writable capacity of `seed_out` - `seed_len` must be a valid pointer to store the seed length - `error` must be a valid pointer to an FFIError
+
+**Safety:**
+- `mnemonic` must be a valid null-terminated C string - `passphrase` must be a valid null-terminated C string or null - `seed_out` must be a valid pointer to a buffer of at least `seed_out_len` bytes - `seed_out_len` is the writable capacity of `seed_out` - `seed_len` must be a valid pointer to store the seed length - `error` must be a valid pointer to an FFIError
 
 **Module:** `mnemonic`
 

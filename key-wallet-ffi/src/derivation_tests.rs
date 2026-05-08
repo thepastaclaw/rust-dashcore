@@ -21,10 +21,11 @@ mod tests {
         let mut seed_len = seed.len();
 
         let success = unsafe {
-            mnemonic::mnemonic_to_seed(
+            mnemonic::mnemonic_to_seed_with_len(
                 mnemonic.as_ptr(),
                 passphrase.as_ptr(),
                 seed.as_mut_ptr(),
+                seed.len(),
                 &mut seed_len,
                 &mut error,
             )
@@ -292,6 +293,52 @@ mod tests {
         unsafe {
             derivation_xpriv_free(xpriv);
         }
+    }
+
+    #[test]
+    fn test_key_wallet_derive_address_from_seed_with_len_rejects_invalid_seed_len() {
+        let seed = [0u8; 64];
+        let path = CString::new("m/44'/1'/0'/0/0").unwrap();
+
+        let address = unsafe {
+            key_wallet_derive_address_from_seed_with_len(
+                seed.as_ptr(),
+                seed.len() - 1,
+                FFINetwork::Testnet,
+                path.as_ptr(),
+            )
+        };
+
+        assert!(address.is_null());
+    }
+
+    #[test]
+    fn test_key_wallet_derive_private_key_from_seed_with_len_rejects_invalid_lengths() {
+        let seed = [0u8; 64];
+        let path = CString::new("m/44'/1'/0'/0/0").unwrap();
+        let mut key_out = [0u8; 32];
+
+        let invalid_seed_len_result = unsafe {
+            key_wallet_derive_private_key_from_seed_with_len(
+                seed.as_ptr(),
+                seed.len() - 1,
+                path.as_ptr(),
+                key_out.as_mut_ptr(),
+                key_out.len(),
+            )
+        };
+        assert_eq!(invalid_seed_len_result, -1);
+
+        let small_buffer_result = unsafe {
+            key_wallet_derive_private_key_from_seed_with_len(
+                seed.as_ptr(),
+                seed.len(),
+                path.as_ptr(),
+                key_out.as_mut_ptr(),
+                key_out.len() - 1,
+            )
+        };
+        assert_eq!(small_buffer_result, -1);
     }
 
     #[test]

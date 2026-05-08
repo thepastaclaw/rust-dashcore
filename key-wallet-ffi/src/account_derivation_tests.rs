@@ -41,13 +41,15 @@ mod tests {
 
         // Build a master xpriv from the same mnemonic seed
         let mut seed = [0u8; 64];
+        let mut seed_len = seed.len();
         // Deterministic seed from mnemonic helper
         let ok = unsafe {
-            crate::mnemonic::mnemonic_to_seed(
+            crate::mnemonic::mnemonic_to_seed_with_len(
                 mnemonic.as_ptr(),
                 passphrase.as_ptr(),
                 seed.as_mut_ptr(),
-                &mut (seed.len()),
+                seed.len(),
+                &mut seed_len,
                 &mut error,
             )
         };
@@ -139,12 +141,14 @@ mod tests {
 
         // Seed and master xpriv
         let mut seed = [0u8; 64];
+        let mut seed_len = seed.len();
         let ok = unsafe {
-            crate::mnemonic::mnemonic_to_seed(
+            crate::mnemonic::mnemonic_to_seed_with_len(
                 mnemonic.as_ptr(),
                 passphrase.as_ptr(),
                 seed.as_mut_ptr(),
-                &mut (seed.len()),
+                seed.len(),
+                &mut seed_len,
                 &mut error,
             )
         };
@@ -194,10 +198,11 @@ mod tests {
         let mut seed = [0u8; 64];
         let mut seed_len = seed.len();
         let ok = unsafe {
-            crate::mnemonic::mnemonic_to_seed(
+            crate::mnemonic::mnemonic_to_seed_with_len(
                 mnemonic.as_ptr(),
                 passphrase.as_ptr(),
                 seed.as_mut_ptr(),
+                seed.len(),
                 &mut seed_len,
                 &mut error,
             )

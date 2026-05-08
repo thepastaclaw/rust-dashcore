@@ -26,8 +26,14 @@ fn test_address_simple() {
 
     // Get wallet ID to verify it was created
     let mut wallet_id = [0u8; 32];
-    let success =
-        unsafe { key_wallet_ffi::wallet::wallet_get_id(wallet, wallet_id.as_mut_ptr(), error) };
+    let success = unsafe {
+        key_wallet_ffi::wallet::wallet_get_id_with_len(
+            wallet,
+            wallet_id.as_mut_ptr(),
+            wallet_id.len(),
+            error,
+        )
+    };
     assert!(success);
     assert_ne!(wallet_id, [0u8; 32]);
 
