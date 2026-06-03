@@ -19,9 +19,15 @@ pub trait FilterHeaderStorage: Send + Sync + 'static {
 
     /// Load a contiguous range of filter headers by height.
     ///
-    /// Returns `StorageError::InvalidArgument` when the range extends into a
-    /// segment queued for deletion by a prior `truncate_above` (before the next
-    /// `persist`). Callers must clamp the range to at most `get_filter_tip_height`.
+    /// Returns `StorageError::InvalidArgument` when the range:
+    /// - extends above `get_filter_tip_height` (including from empty storage),
+    /// - begins below `get_filter_start_height` (storage may begin partway
+    ///   into a segment when loaded from a sparse checkpoint), or
+    /// - extends into a segment queued for deletion by a prior `truncate_above`
+    ///   (before the next `persist`).
+    ///
+    /// Callers must clamp the range to
+    /// `[get_filter_start_height, get_filter_tip_height]`.
     async fn load_filter_headers(&self, range: Range<u32>) -> StorageResult<Vec<FilterHeader>>;
 
     async fn get_filter_header(&self, height: u32) -> StorageResult<Option<FilterHeader>> {

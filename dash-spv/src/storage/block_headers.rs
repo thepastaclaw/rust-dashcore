@@ -63,9 +63,14 @@ pub trait BlockHeaderStorage: Send + Sync + 'static {
 
     /// Load a contiguous range of headers by height.
     ///
-    /// Returns `StorageError::InvalidArgument` when the range extends into a
-    /// segment queued for deletion by a prior `truncate_above` (before the next
-    /// `persist`). Callers must clamp the range to at most `get_tip_height`.
+    /// Returns `StorageError::InvalidArgument` when the range:
+    /// - extends above `get_tip_height` (including from empty storage),
+    /// - begins below `get_start_height` (storage may begin partway into a
+    ///   segment when loaded from a sparse checkpoint), or
+    /// - extends into a segment queued for deletion by a prior `truncate_above`
+    ///   (before the next `persist`).
+    ///
+    /// Callers must clamp the range to `[get_start_height, get_tip_height]`.
     async fn load_headers(&self, range: Range<u32>) -> StorageResult<Vec<BlockHeader>>;
 
     async fn get_header(&self, height: u32) -> StorageResult<Option<BlockHeader>> {
