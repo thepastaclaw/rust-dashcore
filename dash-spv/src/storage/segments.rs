@@ -205,11 +205,18 @@ impl<I: Persistable> SegmentCache<I> {
 
     /// Load a contiguous range of items by height.
     ///
-    /// Returns `StorageError::InvalidArgument` when the requested range extends
-    /// into a segment queued for deletion by a prior `truncate_above` (before
-    /// the next `persist`). Callers reading across a truncation boundary must
-    /// clamp their range to `tip_height` first, or fall back to per-item reads
-    /// via `get_item`, which returns `Ok(None)` for those slots.
+    /// Returns `StorageError::InvalidArgument` when the requested range:
+    /// - extends above `tip_height` (including any read from empty storage),
+    /// - begins below `start_height` — storage may start at a checkpoint where
+    ///   the first segment's prefix slots are sentinels, and a dense read
+    ///   straddling that boundary would panic on the offset debug_assert or
+    ///   return sentinel values as data in release builds, or
+    /// - extends into a segment queued for deletion by a prior `truncate_above`
+    ///   (before the next `persist`).
+    ///
+    /// Callers reading across a truncation or checkpoint boundary must clamp
+    /// their range to `[start_height, tip_height]` first, or fall back to
+    /// per-item reads via `get_item`, which returns `Ok(None)` for those slots.
     pub async fn get_items(&mut self, height_range: Range<u32>) -> StorageResult<Vec<I>> {
         debug_assert!(height_range.start < height_range.end);
 
@@ -219,11 +226,26 @@ impl<I: Persistable> SegmentCache<I> {
         // Reject ranges that extend past the current tip. After a within-segment
         // `truncate_above`, the boundary segment is not in `to_delete` so the
         // loop guard below cannot catch overruns into its sentinel tail.
+        // Note: an empty cache has `next_height() == 0`, so any non-empty
+        // range is rejected here.
         if end > self.next_height() {
             return Err(StorageError::InvalidArgument(format!(
                 "get_items range {height_range:?} extends above tip {:?}",
                 self.tip_height
             )));
+        }
+
+        // Reject ranges that begin below `start_height`. When storage starts
+        // at a sparse checkpoint inside a segment (e.g. segment 1 with first
+        // valid offset 10), the slots before `start_height` hold sentinels.
+        // The dense-read debug_assert on `first_valid_offset` would panic,
+        // and release builds would silently return sentinel values as data.
+        if let Some(start_height) = self.start_height {
+            if start < start_height {
+                return Err(StorageError::InvalidArgument(format!(
+                    "get_items range {height_range:?} starts below start_height {start_height}"
+                )));
+            }
         }
 
         let mut items = Vec::with_capacity((end - start) as usize);
@@ -997,6 +1019,56 @@ mod tests {
 
         let kept = cache.get_items(0..10).await.unwrap();
         assert_eq!(kept, items[0..10]);
+    }
+
+    #[tokio::test]
+    async fn test_get_items_below_start_height_sparse_checkpoint() {
+        let tmp_dir = TempDir::new().unwrap();
+
+        const ITEMS_PER_SEGMENT: u32 = Segment::<FilterHeader>::ITEMS_PER_SEGMENT;
+
+        // Storage begins partway into segment 1 (e.g. loaded from a checkpoint).
+        // Segment 0 has no file; segment 1's offsets [0, 10) are sentinels.
+        let start = ITEMS_PER_SEGMENT + 10;
+        let items = FilterHeader::dummy_batch(start..start + 50);
+
+        let mut cache = SegmentCache::<FilterHeader>::load_or_new(tmp_dir.path()).await.unwrap();
+        cache.store_items_at_height(&items, start).await.unwrap();
+        cache.persist(tmp_dir.path()).await;
+
+        // Reload so start_height/tip_height are recomputed from the persisted
+        // segment file, mirroring how a real sparse checkpoint reopens.
+        let mut cache = SegmentCache::<FilterHeader>::load_or_new(tmp_dir.path()).await.unwrap();
+        assert_eq!(cache.start_height(), Some(start));
+        assert_eq!(cache.tip_height(), Some(start + 49));
+
+        // The valid dense range still loads.
+        let loaded = cache.get_items(start..start + 50).await.unwrap();
+        assert_eq!(loaded, items);
+
+        // A range fully inside the sentinel prefix must error, not panic on
+        // the dense-read debug_assert or return sentinel values.
+        assert!(matches!(cache.get_items(0..10).await, Err(StorageError::InvalidArgument(_))));
+
+        // A range one slot below start_height must error.
+        assert!(matches!(
+            cache.get_items(start - 1..start + 5).await,
+            Err(StorageError::InvalidArgument(_))
+        ));
+
+        // A range spanning from segment 0's sentinel slots through the sparse
+        // prefix of segment 1 must error.
+        assert!(matches!(
+            cache.get_items(ITEMS_PER_SEGMENT - 5..start + 5).await,
+            Err(StorageError::InvalidArgument(_))
+        ));
+
+        // A read from empty storage is also rejected (existing above-tip guard).
+        let mut empty =
+            SegmentCache::<FilterHeader>::load_or_new(TempDir::new().unwrap().path().to_path_buf())
+                .await
+                .unwrap();
+        assert!(matches!(empty.get_items(0..1).await, Err(StorageError::InvalidArgument(_))));
     }
 
     #[tokio::test]
